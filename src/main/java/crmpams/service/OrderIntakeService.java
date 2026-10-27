@@ -8,6 +8,7 @@ import crmpams.db.TransactionRunner;
 import crmpams.model.Customer;
 import crmpams.model.CurrentUser;
 import crmpams.model.NewOrderRecord;
+import crmpams.model.OrderLine;
 import crmpams.model.OrderRequest;
 import crmpams.model.Role;
 import crmpams.model.WorkflowStages;
@@ -67,19 +68,45 @@ public final class OrderIntakeService {
         return tx.read(c -> customerDao.findByNameAndContact(c, FieldRules.clean(name), normalized));
     }
 
+    /**
+     * Rules of one order line, used by Add Order Line on the form. sheets or sets is null when the
+     * typed text is not a whole number.
+     */
+    public static ValidationResult validateLine(Integer projectTypeId, String media, String size, Integer sheets,
+            Integer sets) {
+        return new ValidationResult()
+                .check(Fields.LINE_PROJECT_TYPE, FieldRules.requiredSelection(projectTypeId,
+                        "Choose the project type of this line."))
+                .check(Fields.LINE_MEDIA, FieldRules.lineMedia(media))
+                .check(Fields.LINE_SIZE, FieldRules.lineSize(size))
+                .check(Fields.LINE_SHEETS, FieldRules.sheetCount(sheets))
+                .check(Fields.LINE_SETS, FieldRules.setCount(sets));
+    }
+
     /** IPO 5.3: the rules shared by the form (before submitting) and this service (before saving). */
     public static ValidationResult validate(OrderRequest r, LocalDate today) {
-        return new ValidationResult()
+        ValidationResult v = new ValidationResult()
                 .check(Fields.CUSTOMER_NAME, FieldRules.customerName(r.customerName()))
                 .check(Fields.CONTACT_NUMBER, FieldRules.contactNumber(r.contactNumber(), true))
                 .check(Fields.EMAIL, FieldRules.email(r.email()))
-                .check(Fields.PROJECT_TYPE, FieldRules.requiredSelection(r.projectTypeId(), "Choose a project type."))
                 .check(Fields.PROJECT_DESCRIPTION, FieldRules.requiredText(r.projectDescription(),
                         FieldRules.DESCRIPTION_MIN, FieldRules.DESCRIPTION_MAX, "Project description"))
-                .check(Fields.REQUIRED_OUTPUT, FieldRules.optionalText(r.requiredOutput(),
-                        FieldRules.REQUIRED_OUTPUT_MAX, "Required output"))
+                .check(Fields.ORDER_LINES, FieldRules.lineCount(r.lines() == null ? 0 : r.lines().size()));
+        if (r.lines() != null) {
+            for (int i = 0; i < r.lines().size(); i++) {
+                OrderLine line = r.lines().get(i);
+                ValidationResult lv = validateLine(line.projectTypeId(), line.media(), line.size(), line.sheets(),
+                        line.sets());
+                if (!lv.isValid()) {
+                    v.check(Fields.ORDER_LINES, "Line " + (i + 1) + ": " + lv.errors().get(0).message());
+                }
+            }
+        }
+        return v
                 .check(Fields.DEADLINE, FieldRules.deadline(r.deadline(), today))
                 .check(Fields.URGENCY, FieldRules.requiredSelection(r.urgencyLevelId(), "Choose an urgency level."))
+                .check(Fields.DELIVERY_ADDRESS, FieldRules.optionalText(r.deliveryAddress(),
+                        FieldRules.ADDRESS_MAX, "Delivery address"))
                 .check(Fields.SPECIAL_INSTRUCTIONS, FieldRules.optionalText(r.specialInstructions(),
                         FieldRules.INSTRUCTIONS_MAX, "Special instructions"))
                 .check(Fields.REFERENCE_FILE, FieldRules.referenceFile(r.referenceFilePath()));
@@ -106,8 +133,11 @@ public final class OrderIntakeService {
 
         return tx.inTransaction(c -> {
             ValidationResult refErrors = new ValidationResult();
-            if (!referenceDao.isActiveProjectType(c, r.projectTypeId())) {
-                refErrors.check(Fields.PROJECT_TYPE, "This project type is no longer available. Choose another one.");
+            for (int i = 0; i < r.lines().size(); i++) {
+                if (!referenceDao.isActiveProjectType(c, r.lines().get(i).projectTypeId())) {
+                    refErrors.check(Fields.ORDER_LINES, "Line " + (i + 1) + ": this project type is no longer "
+                            + "available. Remove the line and add it again with another project type.");
+                }
             }
             if (!referenceDao.isActiveUrgencyLevel(c, r.urgencyLevelId())) {
                 refErrors.check(Fields.URGENCY, "This urgency level is no longer available. Choose another one.");
@@ -136,15 +166,19 @@ public final class OrderIntakeService {
                     .orElseThrow(() -> new SQLException("Workflow stage 'New' is missing from workflow_stages."));
             int orderId = orderDao.insert(c, new NewOrderRecord(
                     customerId,
-                    r.projectTypeId(),
                     description,
-                    FieldRules.blankToNull(r.requiredOutput()),
                     r.deadline(),
                     r.urgencyLevelId(),
+                    FieldRules.blankToNull(r.deliveryAddress()),
                     FieldRules.blankToNull(r.specialInstructions()),
                     stageId,
                     now,
                     user.userId()));
+            for (int i = 0; i < r.lines().size(); i++) {
+                OrderLine line = r.lines().get(i);
+                orderDao.insertLine(c, orderId, i + 1, new OrderLine(line.projectTypeId(), line.projectTypeName(),
+                        FieldRules.clean(line.media()), FieldRules.clean(line.size()), line.sheets(), line.sets()));
+            }
 
             if (filePath != null) {
                 Path p = Path.of(filePath);
@@ -153,7 +187,7 @@ public final class OrderIntakeService {
             auditDao.addStatusHistory(c, orderId, stageId, user.userId(), now, "Order created", null,
                     WorkflowStages.NEW);
             auditDao.logActivity(c, user.userId(), "ORDER_CREATED", "Order " + orderId + " created", now);
-            return SaveOrderResult.saved(orderId, newCustomer);
+            return SaveOrderResult.saved(orderId, newCustomer, now);
         });
     }
 

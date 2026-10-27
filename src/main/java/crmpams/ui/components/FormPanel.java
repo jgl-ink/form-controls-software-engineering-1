@@ -540,6 +540,10 @@ public abstract class FormPanel extends JPanel {
             }
             return;
         }
+        if (c instanceof JComboBox<?> combo && combo.isEditable()) {
+            out.add(combo.getEditor().getEditorComponent());
+            return;
+        }
         if (c instanceof JTextComponent || c instanceof AbstractButton || c instanceof JComboBox
                 || c instanceof JSlider || c instanceof JTable || c instanceof JList) {
             out.add(c);

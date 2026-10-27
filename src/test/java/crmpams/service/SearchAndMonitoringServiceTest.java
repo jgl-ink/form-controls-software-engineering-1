@@ -47,6 +47,18 @@ class SearchAndMonitoringServiceTest {
     }
 
     @Test
+    void projectTypeFilterMatchesAnyLineOfAnOrder() throws Exception {
+        // Order 1001 has an Architectural Floor Plan line and a Blueprint Printing line (type 3).
+        OrderSearchCriteria blueprint = new OrderSearchCriteria("", 3, null, null, null, false, null, null, false);
+        SearchResult r = ctx.search().search(TestFixtures.OFFICER, blueprint);
+        assertTrue(r.rows().stream().anyMatch(o -> o.orderId() == 1001));
+        assertTrue(r.rows().stream().anyMatch(o -> o.orderId() == 1003));
+        OrderSummary first = r.rows().stream().filter(o -> o.orderId() == 1001).findFirst().orElseThrow();
+        assertEquals("Architectural Floor Plan, Blueprint Printing", first.projectTypes());
+        assertEquals(2, ctx.search().loadOrderLines(TestFixtures.OFFICER, 1001).size());
+    }
+
+    @Test
     void closedStatusNeedsTheIncludeCheckbox() throws Exception {
         OrderSearchCriteria k = new OrderSearchCriteria("", null, 7, null, null, false, null, null, false);
         assertNotNull(ctx.search().search(TestFixtures.OFFICER, k).errors().messageFor(Fields.STATUS));

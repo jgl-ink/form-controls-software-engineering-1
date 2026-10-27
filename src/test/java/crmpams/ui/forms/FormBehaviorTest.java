@@ -70,7 +70,7 @@ class FormBehaviorTest {
         assertTrue(f.isSummaryShown());
         assertNotNull(f.shownError(Fields.CUSTOMER_NAME));
         assertNotNull(f.shownError(Fields.CONTACT_NUMBER));
-        assertNotNull(f.shownError(Fields.PROJECT_TYPE));
+        assertNotNull(f.shownError(Fields.ORDER_LINES));
         assertNotNull(f.shownError(Fields.PROJECT_DESCRIPTION));
         assertNotNull(f.shownError(Fields.URGENCY));
         assertNull(f.shownError(Fields.EMAIL));                    // optional and empty is fine
@@ -91,15 +91,62 @@ class FormBehaviorTest {
         NewOrderForm f = newOrderForm();
         f.customerName.setText("Juan Dela Cruz");
         f.contactNumber.setText("+639171112222");
-        f.projectType.setSelectedIndex(1);
+        addLine(f, 1, "Bond paper", "A1", 2, 1);
+        addLine(f, 3, "Blueprint paper", "A1", 2, 3);
+        assertEquals(2, f.linesModel.getRowCount());
+        assertEquals(6, f.linesModel.getValueAt(1, 6));                 // total no. of sheets = 2 x 3
         f.description.setText("Floor plan for a bungalow");
         f.deadline.setDate(TestFixtures.TODAY.plusDays(3));
         f.urgency.setSelected(store.urgencyLevels.get(1));
+        f.deliveryAddress.setText("12 Sample St., Quezon City");
         f.submit();
         assertFalse(f.isSummaryShown());
         assertEquals(9, store.orders.size());
+        assertEquals(2, store.items.stream().filter(i -> i.orderId() == store.orders.get(8).id()).count());
         assertTrue(messages.contains("Order saved"));
         assertEquals("", f.customerName.getText());
+        assertEquals(0, f.linesModel.getRowCount());
+    }
+
+    private static void addLine(NewOrderForm f, int typeIndex, String media, String size, int sheets, int sets) {
+        f.lineProjectType.setSelectedIndex(typeIndex);
+        f.lineMedia.setSelectedItem(media);
+        f.lineSize.setSelectedItem(size);
+        f.lineSheets.setValue(sheets);
+        f.lineSets.setValue(sets);
+        f.addLine();
+    }
+
+    @Test
+    void addOrderLineChecksTheLineAndAddsNothingWhenInvalid() throws Exception {
+        NewOrderForm f = newOrderForm();
+        NewOrderForm.textOf(f.lineSheets).setText("abc");
+        f.addLine();
+        assertNotNull(f.shownError(Fields.LINE_PROJECT_TYPE));
+        assertNotNull(f.shownError(Fields.LINE_MEDIA));
+        assertNotNull(f.shownError(Fields.LINE_SIZE));
+        assertNotNull(f.shownError(Fields.LINE_SHEETS));
+        assertEquals(0, f.linesModel.getRowCount());
+    }
+
+    @Test
+    void aLineFilledInButNotAddedIsPointedOut() throws Exception {
+        NewOrderForm f = newOrderForm();
+        f.lineProjectType.setSelectedIndex(2);
+        f.submit();
+        assertTrue(f.shownError(Fields.ORDER_LINES).contains("Add Order Line"));
+    }
+
+    @Test
+    void removingALineUpdatesTheTable() throws Exception {
+        NewOrderForm f = newOrderForm();
+        addLine(f, 1, "Bond paper", "A1", 1, 1);
+        addLine(f, 2, "Vellum", "A2", 3, 2);
+        f.linesTable.setRowSelectionInterval(0, 0);
+        f.removeSelectedLine();
+        assertEquals(1, f.linesModel.getRowCount());
+        assertEquals("Vellum", f.linesModel.getValueAt(0, 2));
+        assertEquals(1, f.linesModel.getValueAt(0, 0));                 // lines are renumbered
     }
 
     @Test

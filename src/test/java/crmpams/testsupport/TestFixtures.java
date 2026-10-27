@@ -64,17 +64,27 @@ public final class TestFixtures {
         s.customers.add(new Customer(4, "Bayview Construction Corp.", "09191234504", "projects@example.com"));
         s.customers.add(new Customer(5, "Kristine Ocampo", "09201234505", null));
 
-        // id, customer, type, description, deadline offset, urgency, stage, assignee employee, received
-        order(s, 1001, 1, 2, "Two-storey residential floor plan revision", 5, 3, 3, 3, TODAY.minusDays(3).atTime(10, 5));
-        order(s, 1002, 2, 6, "Structural layout for three-storey commercial building", -1, 3, 2, 4,
-                TODAY.minusDays(7).atTime(14, 20));
-        order(s, 1003, 3, 3, "Blueprint printing of approved site development plan", 2, 2, 1, 0,
-                TODAY.atTime(8, 40));
-        order(s, 1004, 4, 1, "3D model of warehouse extension", 12, 2, 4, 5, TODAY.minusDays(12).atTime(9, 0));
-        order(s, 1005, 5, 7, "Thesis board printing, 4 plates", 1, 3, 5, 3, TODAY.minusDays(2).atTime(16, 45));
-        order(s, 1006, 1, 2, "Kitchen renovation layout", -10, 2, 7, 4, TODAY.minusDays(22).atTime(11, 30));
-        order(s, 1007, 2, 3, "As-built plans, 6 sheets", 3, 1, 6, 5, TODAY.minusDays(15).atTime(13, 10));
-        order(s, 1008, 3, 5, "Site development plan revision 2", 8, 1, 3, 4, TODAY.minusDays(5).atTime(15, 0));
+        // id, customer, description, deadline offset, urgency, stage, assignee employee, received, address
+        // Order lines match sql/seed.sql. Order 1001 has two project types.
+        order(s, 1001, 1, "Two-storey residential floor plan revision", 5, 3, 3, 3, TODAY.minusDays(3).atTime(10, 5), null);
+        line(s, 1001, 1, 2, "Bond paper", "A1", 2, 1);
+        line(s, 1001, 2, 3, "Blueprint paper", "A1", 2, 3);
+        order(s, 1002, 2, "Structural layout for three-storey commercial building", -1, 3, 2, 4,
+                TODAY.minusDays(7).atTime(14, 20), "45 Sample Street, Barangay Example, Quezon City");
+        line(s, 1002, 1, 6, "Bond paper", "20 x 30 in", 5, 2);
+        order(s, 1003, 3, "Blueprint printing of approved site development plan", 2, 2, 1, 0, TODAY.atTime(8, 40), null);
+        line(s, 1003, 1, 3, "Blueprint paper", "A1", 8, 3);
+        order(s, 1004, 4, "3D model of warehouse extension", 12, 2, 4, 5, TODAY.minusDays(12).atTime(9, 0), null);
+        line(s, 1004, 1, 1, "Digital file only", "A1", 1, 1);
+        order(s, 1005, 5, "Thesis board printing, 4 plates", 1, 3, 5, 3, TODAY.minusDays(2).atTime(16, 45), null);
+        line(s, 1005, 1, 7, "Photo paper", "A1", 4, 1);
+        order(s, 1006, 1, "Kitchen renovation layout", -10, 2, 7, 4, TODAY.minusDays(22).atTime(11, 30), null);
+        line(s, 1006, 1, 2, "Bond paper", "A2", 1, 2);
+        order(s, 1007, 2, "As-built plans, 6 sheets", 3, 1, 6, 5, TODAY.minusDays(15).atTime(13, 10),
+                "45 Sample Street, Barangay Example, Quezon City");
+        line(s, 1007, 1, 3, "Blueprint paper", "A1", 6, 2);
+        order(s, 1008, 3, "Site development plan revision 2", 8, 1, 3, 4, TODAY.minusDays(5).atTime(15, 0), null);
+        line(s, 1008, 1, 5, "Vellum", "20 x 30 in", 3, 1);
         return s;
     }
 
@@ -85,15 +95,20 @@ public final class TestFixtures {
         s.users.add(new InMemoryStore.User(id, id, username, hash, role, active, id == 1 ? null : 1));
     }
 
-    private static void order(InMemoryStore s, int id, int customer, int type, String description, int deadlineOffset,
-            int urgency, int stage, int assignee, LocalDateTime received) {
-        s.orders.add(new InMemoryStore.Order(id, customer, type, description, null, TODAY.plusDays(deadlineOffset),
-                urgency, null, stage, received, 2));
+    private static void order(InMemoryStore s, int id, int customer, String description, int deadlineOffset,
+            int urgency, int stage, int assignee, LocalDateTime received, String address) {
+        s.orders.add(new InMemoryStore.Order(id, customer, description, TODAY.plusDays(deadlineOffset), urgency,
+                address, null, stage, received, 2));
         if (assignee > 0) {
             s.assignments.add(new InMemoryStore.Assignment(id, assignee, true));
         }
         s.history.add(new InMemoryStore.History(id, stage, 2, received.plusHours(1), "Status", null,
                 WorkflowStages.ALL.get(stage - 1)));
+    }
+
+    private static void line(InMemoryStore s, int orderId, int lineNo, int type, String media, String size,
+            int sheets, int sets) {
+        s.items.add(new InMemoryStore.Item(orderId, lineNo, type, media, size, sheets, sets));
     }
 
     public static AppContext context(InMemoryStore s) {

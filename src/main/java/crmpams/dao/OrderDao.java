@@ -2,6 +2,7 @@ package crmpams.dao;
 
 import crmpams.model.MonitoringRow;
 import crmpams.model.NewOrderRecord;
+import crmpams.model.OrderLine;
 import crmpams.model.OrderSearchCriteria;
 import crmpams.model.OrderSummary;
 import java.sql.Connection;
@@ -25,7 +26,16 @@ public interface OrderDao {
 
     void insertReferenceFile(Connection c, int orderId, String fileName, String fileLocation) throws SQLException;
 
-    /** One parameterized query built from the selected criteria (IPO 12.2). */
+    /** Inserts one order line into order_items. lineNo starts at 1. */
+    void insertLine(Connection c, int orderId, int lineNo, OrderLine line) throws SQLException;
+
+    /** The lines of one order in line number order, with the project type names. */
+    List<OrderLine> findLines(Connection c, int orderId) throws SQLException;
+
+    /**
+     * One parameterized query built from the selected criteria (IPO 12.2). The project type filter
+     * matches an order when any of its lines has that project type.
+     */
     List<OrderSummary> search(Connection c, OrderSearchCriteria criteria, Collection<String> closedStages,
             int limit) throws SQLException;
 

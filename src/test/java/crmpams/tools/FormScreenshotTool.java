@@ -89,10 +89,11 @@ public final class FormScreenshotTool {
         mainWindow(ctx);
 
         // Major Form 1: New Order
-        shoot("04_new_order_normal.png", d.newOrder(), 900, 1180, null);
-        shoot("05_new_order_errors.png", d.newOrder(), 900, 1420, FormDriver::fillNewOrderInvalid);
-        shoot("06_new_order_lookup_found.png", d.newOrder(), 900, 1180, FormDriver::lookUpExistingCustomer);
-        shoot("07_new_order_valid_filled.png", d.newOrder(), 900, 1180, FormDriver::fillNewOrderValid);
+        shoot("04_new_order_normal.png", d.newOrder(), 900, 1640, null);
+        shoot("05_new_order_errors.png", d.newOrder(), 900, 1860, FormDriver::fillNewOrderInvalid);
+        shoot("06_new_order_lookup_found.png", d.newOrder(), 900, 1640, FormDriver::lookUpExistingCustomer);
+        shoot("07_new_order_valid_filled.png", d.newOrder(), 900, 1640, FormDriver::fillNewOrderValid);
+        shoot("07b_new_order_line_errors.png", d.newOrder(), 900, 1720, FormDriver::addInvalidLine);
         int before = store.orders.size();
         FormPanel saved = d.newOrder();
         SwingUtilities.invokeAndWait(() -> {

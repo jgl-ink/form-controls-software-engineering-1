@@ -9,9 +9,17 @@ public final class Fields {
     public static final String EMAIL = "email";
     public static final String PROJECT_TYPE = "projectType";
     public static final String PROJECT_DESCRIPTION = "projectDescription";
-    public static final String REQUIRED_OUTPUT = "requiredOutput";
     public static final String DEADLINE = "deadline";
     public static final String URGENCY = "urgency";
+    public static final String DELIVERY_ADDRESS = "deliveryAddress";
+
+    // Order lines of the New Order form (columns of the company's order form)
+    public static final String ORDER_LINES = "orderLines";
+    public static final String LINE_PROJECT_TYPE = "lineProjectType";
+    public static final String LINE_MEDIA = "lineMedia";
+    public static final String LINE_SIZE = "lineSize";
+    public static final String LINE_SHEETS = "lineSheets";
+    public static final String LINE_SETS = "lineSets";
     public static final String SPECIAL_INSTRUCTIONS = "specialInstructions";
     public static final String REFERENCE_FILE = "referenceFile";
 

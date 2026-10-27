@@ -90,6 +90,15 @@ public final class FormDriver {
         buttons.stream().filter(b -> b.getText().equals(text)).findFirst().orElseThrow().doClick(0);
     }
 
+    private static void addLine(NewOrderForm f, String type, String media, String size, int sheets, int sets) {
+        select(f.lineProjectType, type);
+        f.lineMedia.setSelectedItem(media);
+        f.lineSize.setSelectedItem(size);
+        f.lineSheets.setValue(sheets);
+        f.lineSets.setValue(sets);
+        f.addLine();
+    }
+
     public static void fillNewOrderInvalid(FormPanel form) {
         NewOrderForm f = (NewOrderForm) form;
         f.customerName.setText("J");
@@ -98,6 +107,14 @@ public final class FormDriver {
         f.description.setText("Plan");
         f.deadline.setDate(TestFixtures.TODAY.minusDays(1));
         f.submit();
+    }
+
+    /** Add Order Line pressed with an incomplete line: no project type, no size, and 0 sheets typed. */
+    public static void addInvalidLine(FormPanel form) {
+        NewOrderForm f = (NewOrderForm) form;
+        f.lineMedia.setSelectedItem("Bond paper");
+        NewOrderForm.textOf(f.lineSheets).setText("0");
+        f.addLine();
     }
 
     public static void lookUpExistingCustomer(FormPanel form) {
@@ -112,12 +129,13 @@ public final class FormDriver {
         f.customerName.setText("Juan Dela Cruz");
         f.contactNumber.setText("09171112222");
         f.email.setText("juan.delacruz@example.com");
-        select(f.projectType, "Architectural Floor Plan");
-        f.description.setText("Floor plan of a two-bedroom bungalow with roof plan");
-        f.requiredOutput.setText("2 sets, A1 size, blueprint");
+        addLine(f, "Architectural Floor Plan", "Bond paper", "A1", 3, 1);
+        addLine(f, "Blueprint Printing", "Blueprint paper", "A1", 3, 2);
+        f.description.setText("Floor plan of a two-bedroom bungalow with roof plan, plus blueprint copies");
         f.deadline.setDate(TestFixtures.TODAY.plusDays(4));
         clickRadio(f.urgency.buttons(), "High");
-        f.instructions.setText("Customer will pick up the prints at the Cubao branch.");
+        f.deliveryAddress.setText("Lot 5 Block 2, Sample Subdivision, Quezon City");
+        f.instructions.setText("Call the customer before delivery.");
         f.referenceFile.setText(file.toString());
     }
 
@@ -125,7 +143,7 @@ public final class FormDriver {
         NewOrderForm f = (NewOrderForm) form;
         f.customerName.setText("Arch. Lea Navarro");
         f.contactNumber.setText("09171234501");
-        select(f.projectType, "Architectural Floor Plan");
+        addLine(f, "Architectural Floor Plan", "Bond paper", "A1", 2, 1);
         f.description.setText("Two-storey residential floor plan revision");
         f.deadline.setDate(TestFixtures.TODAY.plusDays(5));
         clickRadio(f.urgency.buttons(), "Normal");

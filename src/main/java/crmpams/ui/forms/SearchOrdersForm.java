@@ -2,6 +2,7 @@ package crmpams.ui.forms;
 
 import crmpams.model.CurrentUser;
 import crmpams.model.LookupItem;
+import crmpams.model.OrderLine;
 import crmpams.model.OrderSearchCriteria;
 import crmpams.model.OrderSummary;
 import crmpams.model.UrgencyLevel;
@@ -121,7 +122,7 @@ public final class SearchOrdersForm extends FormPanel {
                 new Column<>("Order ID", Integer.class, OrderSummary::orderId),
                 new Column<>("Date Received", String.class, o -> o.dateReceived().format(DATE_TIME)),
                 new Column<>("Customer", String.class, OrderSummary::customerName),
-                new Column<>("Project Type", String.class, OrderSummary::projectType),
+                new Column<>("Project Types", String.class, o -> Objects.requireNonNullElse(o.projectTypes(), "")),
                 new Column<>("Deadline", String.class, o -> o.deadline().toString()),
                 new Column<>("Urgency", String.class, OrderSummary::urgency),
                 new Column<>("Status", String.class, OrderSummary::stage),
@@ -269,7 +270,7 @@ public final class SearchOrdersForm extends FormPanel {
         focusFirstField();
     }
 
-    /** IPO 12.3: shows the full record of the selected order. */
+    /** IPO 12.3: shows the full record of the selected order, including its order lines. */
     void viewSelected() {
         int viewRow = table.getSelectedRow();
         if (viewRow < 0) {
@@ -277,18 +278,26 @@ public final class SearchOrdersForm extends FormPanel {
             return;
         }
         OrderSummary o = model.rowAt(table.convertRowIndexToModel(viewRow));
-        String text = "Order ID: " + o.orderId()
-                + "\nStatus: " + o.stage()
-                + "\nDate received: " + o.dateReceived().format(DATE_TIME)
-                + "\nCustomer: " + o.customerName() + " (" + o.contactNumber() + ")"
-                + "\nProject type: " + o.projectType()
-                + "\nProject description: " + o.projectDescription()
-                + "\nRequired output: " + Objects.requireNonNullElse(o.requiredOutput(), "None")
-                + "\nDeadline: " + o.deadline()
-                + "\nUrgency: " + o.urgency()
-                + "\nAssigned to: " + Objects.requireNonNullElse(o.assignedTo(), "Not assigned")
-                + "\nSpecial instructions: " + Objects.requireNonNullElse(o.specialInstructions(), "None");
-        Dialogs.info(this, "Order " + o.orderId(), text);
+        UiTasks.run(this, () -> service.loadOrderLines(user, o.orderId()), lines -> {
+            StringBuilder text = new StringBuilder()
+                    .append("J.O. #: ").append(o.orderId())
+                    .append("\nStatus: ").append(o.stage())
+                    .append("\nDate and time received: ").append(o.dateReceived().format(DATE_TIME))
+                    .append("\nCustomer: ").append(o.customerName()).append(" (").append(o.contactNumber()).append(")")
+                    .append("\nProject description: ").append(o.projectDescription())
+                    .append("\nOrder lines:");
+            for (int i = 0; i < lines.size(); i++) {
+                text.append("\n   ").append(i + 1).append(". ").append(lines.get(i).describe());
+            }
+            int sheets = lines.stream().mapToInt(OrderLine::totalSheets).sum();
+            text.append("\nTotal no. of sheets: ").append(sheets)
+                    .append("\nDeadline: ").append(o.deadline())
+                    .append("\nUrgency: ").append(o.urgency())
+                    .append("\nDelivery address: ").append(Objects.requireNonNullElse(o.deliveryAddress(), "None (pick-up)"))
+                    .append("\nCAD operator: ").append(Objects.requireNonNullElse(o.assignedTo(), "Not assigned"))
+                    .append("\nSpecial instructions: ").append(Objects.requireNonNullElse(o.specialInstructions(), "None"));
+            Dialogs.info(this, "J.O. # " + o.orderId(), text.toString());
+        });
     }
 
     List<LookupItem> stages() {

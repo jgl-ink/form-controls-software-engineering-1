@@ -11,6 +11,7 @@ import crmpams.model.Customer;
 import crmpams.model.LookupItem;
 import crmpams.model.MonitoringRow;
 import crmpams.model.NewOrderRecord;
+import crmpams.model.OrderLine;
 import crmpams.model.OrderSearchCriteria;
 import crmpams.model.OrderSummary;
 import crmpams.model.Role;
@@ -42,9 +43,12 @@ public final class InMemoryStore implements TransactionRunner {
     public record User(int id, int employeeId, String username, String passwordHash, Role role, boolean active,
             Integer createdBy) { }
 
-    public record Order(int id, int customerId, int projectTypeId, String description, String requiredOutput,
-            java.time.LocalDate deadline, int urgencyLevelId, String instructions, int stageId,
+    public record Order(int id, int customerId, String description, java.time.LocalDate deadline,
+            int urgencyLevelId, String deliveryAddress, String instructions, int stageId,
             LocalDateTime dateReceived, int encodedBy) { }
+
+    public record Item(int orderId, int lineNo, int projectTypeId, String media, String size, int sheets,
+            int sets) { }
 
     public record ReferenceFile(int orderId, String name, String location) { }
 
@@ -62,6 +66,7 @@ public final class InMemoryStore implements TransactionRunner {
     public final List<User> users = new ArrayList<>();
     public final List<Customer> customers = new ArrayList<>();
     public final List<Order> orders = new ArrayList<>();
+    public final List<Item> items = new ArrayList<>();
     public final List<ReferenceFile> referenceFiles = new ArrayList<>();
     public final List<Assignment> assignments = new ArrayList<>();
     public final List<History> history = new ArrayList<>();
@@ -87,6 +92,11 @@ public final class InMemoryStore implements TransactionRunner {
 
     private String stageName(int stageId) {
         return stages.stream().filter(s -> s.id() == stageId).map(Stage::name).findFirst().orElse("?");
+    }
+
+    private String typeName(int projectTypeId) {
+        return projectTypes.stream().filter(p -> p.id() == projectTypeId).map(ProjectType::name).findFirst()
+                .orElse("?");
     }
 
     private Optional<Employee> currentAssignee(int orderId) {
@@ -189,10 +199,24 @@ public final class InMemoryStore implements TransactionRunner {
             @Override
             public int insert(Connection c, NewOrderRecord o) {
                 int id = 1000 + orders.size() + 1;
-                orders.add(new Order(id, o.customerId(), o.projectTypeId(), o.projectDescription(),
-                        o.requiredOutput(), o.deadline(), o.urgencyLevelId(), o.specialInstructions(),
-                        o.stageId(), o.dateReceived(), o.encodedBy()));
+                orders.add(new Order(id, o.customerId(), o.projectDescription(), o.deadline(), o.urgencyLevelId(),
+                        o.deliveryAddress(), o.specialInstructions(), o.stageId(), o.dateReceived(), o.encodedBy()));
                 return id;
+            }
+
+            @Override
+            public void insertLine(Connection c, int orderId, int lineNo, OrderLine line) {
+                items.add(new Item(orderId, lineNo, line.projectTypeId(), line.media(), line.size(), line.sheets(),
+                        line.sets()));
+            }
+
+            @Override
+            public List<OrderLine> findLines(Connection c, int orderId) {
+                return items.stream().filter(i -> i.orderId() == orderId)
+                        .sorted(Comparator.comparingInt(Item::lineNo))
+                        .map(i -> new OrderLine(i.projectTypeId(), typeName(i.projectTypeId()), i.media(), i.size(),
+                                i.sheets(), i.sets()))
+                        .toList();
             }
 
             @Override
@@ -208,7 +232,8 @@ public final class InMemoryStore implements TransactionRunner {
                         .filter(o -> text.isEmpty() || String.valueOf(o.id()).contains(text)
                                 || containsIgnoreCase(customer(o).name(), text)
                                 || containsIgnoreCase(o.description(), text))
-                        .filter(o -> k.projectTypeId() == null || o.projectTypeId() == k.projectTypeId())
+                        .filter(o -> k.projectTypeId() == null || items.stream()
+                                .anyMatch(i -> i.orderId() == o.id() && i.projectTypeId() == k.projectTypeId()))
                         .filter(o -> k.stageId() == null || o.stageId() == k.stageId())
                         .filter(o -> k.employeeId() == null
                                 || currentAssignee(o.id()).map(e -> e.id() == k.employeeId()).orElse(false))
@@ -229,14 +254,15 @@ public final class InMemoryStore implements TransactionRunner {
 
             private OrderSummary summary(Order o) {
                 Customer cu = customer(o);
-                String type = projectTypes.stream().filter(p -> p.id() == o.projectTypeId())
-                        .map(ProjectType::name).findFirst().orElse("?");
+                String types = items.stream().filter(i -> i.orderId() == o.id())
+                        .map(i -> typeName(i.projectTypeId())).distinct().sorted()
+                        .collect(java.util.stream.Collectors.joining(", "));
                 String urg = urgencyLevels.stream().filter(u -> u.id() == o.urgencyLevelId())
                         .map(UrgencyLevel::name).findFirst().orElse("?");
-                return new OrderSummary(o.id(), cu.name(), cu.contactNumber(), type, o.description(),
-                        o.requiredOutput(), o.deadline(), urg, stageName(o.stageId()),
+                return new OrderSummary(o.id(), cu.name(), cu.contactNumber(), types.isEmpty() ? null : types,
+                        o.description(), o.deadline(), urg, stageName(o.stageId()),
                         currentAssignee(o.id()).map(InMemoryStore::fullName).orElse(null), o.dateReceived(),
-                        o.instructions());
+                        o.deliveryAddress(), o.instructions());
             }
 
             @Override

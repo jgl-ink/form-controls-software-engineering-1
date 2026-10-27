@@ -54,16 +54,28 @@ INSERT INTO customers (customer_id, customer_name, contact_number, email) VALUES
   (4, 'Bayview Construction Corp.', '09191234504', 'projects@example.com'),
   (5, 'Kristine Ocampo',            '09201234505', NULL);
 
-INSERT INTO orders (order_id, customer_id, project_type_id, project_description, deadline, urgency_level_id,
+INSERT INTO orders (order_id, customer_id, project_description, deadline, urgency_level_id, delivery_address,
                     stage_id, date_received, encoded_by) VALUES
-  (1001, 1, 2, 'Two-storey residential floor plan revision',            DATE_ADD(CURDATE(), INTERVAL 5 DAY),   3, 3, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '10:05:00'), 2),
-  (1002, 2, 6, 'Structural layout for three-storey commercial building', DATE_SUB(CURDATE(), INTERVAL 1 DAY),   3, 2, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 7 DAY),  '14:20:00'), 2),
-  (1003, 3, 3, 'Blueprint printing of approved site development plan',  DATE_ADD(CURDATE(), INTERVAL 2 DAY),   2, 1, TIMESTAMP(CURDATE(), '08:40:00'), 2),
-  (1004, 4, 1, '3D model of warehouse extension',                       DATE_ADD(CURDATE(), INTERVAL 12 DAY),  2, 4, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 12 DAY), '09:00:00'), 2),
-  (1005, 5, 7, 'Thesis board printing, 4 plates',                       DATE_ADD(CURDATE(), INTERVAL 1 DAY),   3, 5, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY),  '16:45:00'), 2),
-  (1006, 1, 2, 'Kitchen renovation layout',                             DATE_SUB(CURDATE(), INTERVAL 10 DAY),  2, 7, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 22 DAY), '11:30:00'), 2),
-  (1007, 2, 3, 'As-built plans, 6 sheets',                              DATE_ADD(CURDATE(), INTERVAL 3 DAY),   1, 6, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 15 DAY), '13:10:00'), 2),
-  (1008, 3, 5, 'Site development plan revision 2',                      DATE_ADD(CURDATE(), INTERVAL 8 DAY),   1, 3, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 5 DAY),  '15:00:00'), 2);
+  (1001, 1, 'Two-storey residential floor plan revision',            DATE_ADD(CURDATE(), INTERVAL 5 DAY),  3, NULL,                                       3, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '10:05:00'), 2),
+  (1002, 2, 'Structural layout for three-storey commercial building', DATE_SUB(CURDATE(), INTERVAL 1 DAY),  3, '45 Sample Street, Barangay Example, Quezon City', 2, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 7 DAY),  '14:20:00'), 2),
+  (1003, 3, 'Blueprint printing of approved site development plan',  DATE_ADD(CURDATE(), INTERVAL 2 DAY),  2, NULL,                                       1, TIMESTAMP(CURDATE(), '08:40:00'), 2),
+  (1004, 4, '3D model of warehouse extension',                       DATE_ADD(CURDATE(), INTERVAL 12 DAY), 2, NULL,                                       4, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 12 DAY), '09:00:00'), 2),
+  (1005, 5, 'Thesis board printing, 4 plates',                       DATE_ADD(CURDATE(), INTERVAL 1 DAY),  3, NULL,                                       5, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY),  '16:45:00'), 2),
+  (1006, 1, 'Kitchen renovation layout',                             DATE_SUB(CURDATE(), INTERVAL 10 DAY), 2, NULL,                                       7, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 22 DAY), '11:30:00'), 2),
+  (1007, 2, 'As-built plans, 6 sheets',                              DATE_ADD(CURDATE(), INTERVAL 3 DAY),  1, '45 Sample Street, Barangay Example, Quezon City', 6, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 15 DAY), '13:10:00'), 2),
+  (1008, 3, 'Site development plan revision 2',                      DATE_ADD(CURDATE(), INTERVAL 8 DAY),  1, NULL,                                       3, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 5 DAY),  '15:00:00'), 2);
+
+-- Order lines. Order 1001 has two project types: the floor plan drawing and blueprint copies of it.
+INSERT INTO order_items (order_id, line_no, project_type_id, media, sheet_size, sheet_count, set_count) VALUES
+  (1001, 1, 2, 'Bond paper',        'A1',         2, 1),
+  (1001, 2, 3, 'Blueprint paper',   'A1',         2, 3),
+  (1002, 1, 6, 'Bond paper',        '20 x 30 in', 5, 2),
+  (1003, 1, 3, 'Blueprint paper',   'A1',         8, 3),
+  (1004, 1, 1, 'Digital file only', 'A1',         1, 1),
+  (1005, 1, 7, 'Photo paper',       'A1',         4, 1),
+  (1006, 1, 2, 'Bond paper',        'A2',         1, 2),
+  (1007, 1, 3, 'Blueprint paper',   'A1',         6, 2),
+  (1008, 1, 5, 'Vellum',            '20 x 30 in', 3, 1);
 
 INSERT INTO assignments (order_id, employee_id, assigned_by, date_assigned, is_current) VALUES
   (1001, 3, 1, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY),  '11:00:00'), 1),

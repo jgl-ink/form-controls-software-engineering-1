@@ -5,6 +5,7 @@ import crmpams.dao.ReferenceDataDao;
 import crmpams.db.TransactionRunner;
 import crmpams.model.CurrentUser;
 import crmpams.model.LookupItem;
+import crmpams.model.OrderLine;
 import crmpams.model.OrderSearchCriteria;
 import crmpams.model.OrderSummary;
 import crmpams.model.Role;
@@ -64,6 +65,12 @@ public final class SearchService {
                     + " orders, also tick Include released and completed orders.");
         }
         return v;
+    }
+
+    /** IPO 12.3: the order lines shown with the full record of a selected order. */
+    public List<OrderLine> loadOrderLines(CurrentUser user, int orderId) throws SQLException {
+        AccessControl.require(user, ALLOWED);
+        return tx.read(c -> orderDao.findLines(c, orderId));
     }
 
     public SearchResult search(CurrentUser user, OrderSearchCriteria k) throws SQLException {

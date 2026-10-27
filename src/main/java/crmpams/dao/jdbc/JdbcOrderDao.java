@@ -4,6 +4,7 @@ import crmpams.dao.OrderDao;
 import crmpams.db.LikeEscaper;
 import crmpams.model.MonitoringRow;
 import crmpams.model.NewOrderRecord;
+import crmpams.model.OrderLine;
 import crmpams.model.OrderSearchCriteria;
 import crmpams.model.OrderSummary;
 import java.sql.Connection;
@@ -26,7 +27,6 @@ public final class JdbcOrderDao implements OrderDao {
     private static final String ORDER_JOINS =
             " FROM orders o"
             + " JOIN customers c ON c.customer_id = o.customer_id"
-            + " JOIN project_types pt ON pt.project_type_id = o.project_type_id"
             + " JOIN urgency_levels ul ON ul.urgency_level_id = o.urgency_level_id"
             + " JOIN workflow_stages ws ON ws.stage_id = o.stage_id"
             + " LEFT JOIN assignments a ON a.order_id = o.order_id AND a.is_current = 1"
@@ -59,20 +59,19 @@ public final class JdbcOrderDao implements OrderDao {
 
     @Override
     public int insert(Connection c, NewOrderRecord o) throws SQLException {
-        String sql = "INSERT INTO orders (customer_id, project_type_id, project_description, required_output,"
-                + " deadline, urgency_level_id, special_instructions, stage_id, date_received, encoded_by)"
-                + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO orders (customer_id, project_description, deadline, urgency_level_id,"
+                + " delivery_address, special_instructions, stage_id, date_received, encoded_by)"
+                + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, o.customerId());
-            ps.setInt(2, o.projectTypeId());
-            ps.setString(3, o.projectDescription());
-            ps.setString(4, o.requiredOutput());
-            ps.setDate(5, Date.valueOf(o.deadline()));
-            ps.setInt(6, o.urgencyLevelId());
-            ps.setString(7, o.specialInstructions());
-            ps.setInt(8, o.stageId());
-            ps.setTimestamp(9, JdbcSupport.ts(o.dateReceived()));
-            ps.setInt(10, o.encodedBy());
+            ps.setString(2, o.projectDescription());
+            ps.setDate(3, Date.valueOf(o.deadline()));
+            ps.setInt(4, o.urgencyLevelId());
+            ps.setString(5, o.deliveryAddress());
+            ps.setString(6, o.specialInstructions());
+            ps.setInt(7, o.stageId());
+            ps.setTimestamp(8, JdbcSupport.ts(o.dateReceived()));
+            ps.setInt(9, o.encodedBy());
             ps.executeUpdate();
             return JdbcSupport.generatedKey(ps);
         }
@@ -91,13 +90,50 @@ public final class JdbcOrderDao implements OrderDao {
     }
 
     @Override
+    public void insertLine(Connection c, int orderId, int lineNo, OrderLine line) throws SQLException {
+        String sql = "INSERT INTO order_items (order_id, line_no, project_type_id, media, sheet_size, sheet_count,"
+                + " set_count) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            ps.setInt(2, lineNo);
+            ps.setInt(3, line.projectTypeId());
+            ps.setString(4, line.media());
+            ps.setString(5, line.size());
+            ps.setInt(6, line.sheets());
+            ps.setInt(7, line.sets());
+            ps.executeUpdate();
+        }
+    }
+
+    @Override
+    public List<OrderLine> findLines(Connection c, int orderId) throws SQLException {
+        String sql = "SELECT oi.project_type_id, pt.type_name, oi.media, oi.sheet_size, oi.sheet_count, oi.set_count"
+                + " FROM order_items oi JOIN project_types pt ON pt.project_type_id = oi.project_type_id"
+                + " WHERE oi.order_id = ? ORDER BY oi.line_no";
+        List<OrderLine> lines = new ArrayList<>();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lines.add(new OrderLine(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                            rs.getInt(5), rs.getInt(6)));
+                }
+            }
+        }
+        return lines;
+    }
+
+    @Override
     public List<OrderSummary> search(Connection c, OrderSearchCriteria k, Collection<String> closedStages,
             int limit) throws SQLException {
         StringBuilder sql = new StringBuilder(
-                "SELECT o.order_id, c.customer_name, c.contact_number, pt.type_name, o.project_description,"
-                + " o.required_output, o.deadline, ul.level_name, ws.stage_name,"
+                "SELECT o.order_id, c.customer_name, c.contact_number,"
+                + " (SELECT GROUP_CONCAT(DISTINCT pt.type_name ORDER BY pt.type_name SEPARATOR ', ')"
+                + " FROM order_items oi JOIN project_types pt ON pt.project_type_id = oi.project_type_id"
+                + " WHERE oi.order_id = o.order_id) AS project_types,"
+                + " o.project_description, o.deadline, ul.level_name, ws.stage_name,"
                 + " CONCAT(e.first_name, ' ', e.last_name) AS assigned_to, o.date_received,"
-                + " o.special_instructions")
+                + " o.delivery_address, o.special_instructions")
                 .append(ORDER_JOINS)
                 .append(" WHERE 1 = 1");
         List<Object> params = new ArrayList<>();
@@ -113,7 +149,8 @@ public final class JdbcOrderDao implements OrderDao {
             params.add(pattern);
         }
         if (k.projectTypeId() != null) {
-            sql.append(" AND o.project_type_id = ?");
+            sql.append(" AND EXISTS (SELECT 1 FROM order_items oi2 WHERE oi2.order_id = o.order_id"
+                    + " AND oi2.project_type_id = ?)");
             params.add(k.projectTypeId());
         }
         if (k.stageId() != null) {
@@ -150,14 +187,14 @@ public final class JdbcOrderDao implements OrderDao {
                             rs.getInt("order_id"),
                             rs.getString("customer_name"),
                             rs.getString("contact_number"),
-                            rs.getString("type_name"),
+                            rs.getString("project_types"),
                             rs.getString("project_description"),
-                            rs.getString("required_output"),
                             rs.getDate("deadline").toLocalDate(),
                             rs.getString("level_name"),
                             rs.getString("stage_name"),
                             rs.getString("assigned_to"),
                             JdbcSupport.time(rs.getTimestamp("date_received")),
+                            rs.getString("delivery_address"),
                             rs.getString("special_instructions")));
                 }
             }

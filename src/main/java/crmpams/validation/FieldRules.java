@@ -24,8 +24,26 @@ public final class FieldRules {
     public static final int EMAIL_MAX = 100;
     public static final int DESCRIPTION_MIN = 5;
     public static final int DESCRIPTION_MAX = 500;
-    public static final int REQUIRED_OUTPUT_MAX = 150;
     public static final int INSTRUCTIONS_MAX = 500;
+    public static final int ADDRESS_MAX = 255;
+    public static final int MEDIA_MAX = 40;
+    public static final int SIZE_MAX = 30;
+    public static final int SHEETS_MIN = 1;
+    public static final int SHEETS_MAX = 999;
+    public static final int SETS_MIN = 1;
+    public static final int SETS_MAX = 99;
+    public static final int LINES_MAX = 20;
+
+    /**
+     * Suggested media for an order line. The list is a starting point taken from the supplies and
+     * outputs named in Chapter 1 and the interview; the encoder may type another value.
+     */
+    public static final List<String> MEDIA_SUGGESTIONS = List.of("Bond paper", "Blueprint paper", "Vellum",
+            "Mylar", "Clearprint", "Photo paper", "Digital file only");
+
+    /** Suggested sheet sizes for an order line; the encoder may type another value. */
+    public static final List<String> SIZE_SUGGESTIONS = List.of("A0", "A1", "A2", "A3", "A4", "20 x 30 in",
+            "24 x 36 in", "30 x 42 in", "Short (8.5 x 11 in)", "Long (8.5 x 13 in)");
     public static final int FILE_PATH_MAX = 500;
     public static final int FILE_NAME_MAX = 255;
     public static final int USERNAME_MIN = 4;
@@ -167,6 +185,56 @@ public final class FieldRules {
 
     public static String requiredSelection(Object value, String message) {
         return value == null ? message : null;
+    }
+
+    // ------------------------------------------------------------------ order lines
+
+    public static String lineMedia(String value) {
+        String v = clean(value);
+        if (v.isEmpty()) {
+            return "Enter the media, for example Bond paper.";
+        }
+        if (v.length() > MEDIA_MAX) {
+            return "Media must be " + MEDIA_MAX + " characters or fewer.";
+        }
+        return null;
+    }
+
+    public static String lineSize(String value) {
+        String v = clean(value);
+        if (v.isEmpty()) {
+            return "Enter the size, for example A1.";
+        }
+        if (v.length() > SIZE_MAX) {
+            return "Size must be " + SIZE_MAX + " characters or fewer.";
+        }
+        return null;
+    }
+
+    /** Number of sheets of one order line; null means the typed text is not a whole number. */
+    public static String sheetCount(Integer value) {
+        if (value == null || value < SHEETS_MIN || value > SHEETS_MAX) {
+            return "Number of sheets must be a whole number from " + SHEETS_MIN + " to " + SHEETS_MAX + ".";
+        }
+        return null;
+    }
+
+    /** Number of sets of one order line; null means the typed text is not a whole number. */
+    public static String setCount(Integer value) {
+        if (value == null || value < SETS_MIN || value > SETS_MAX) {
+            return "Number of sets must be a whole number from " + SETS_MIN + " to " + SETS_MAX + ".";
+        }
+        return null;
+    }
+
+    public static String lineCount(int count) {
+        if (count == 0) {
+            return "Add at least one order line with Add Order Line.";
+        }
+        if (count > LINES_MAX) {
+            return "An order can have at most " + LINES_MAX + " lines.";
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------ dates

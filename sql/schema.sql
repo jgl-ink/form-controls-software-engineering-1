@@ -2,10 +2,15 @@
 -- Integrated Customer Relationship Management and Production Assigning and Monitoring System
 -- CADDSolutions Incorporated, Cubao branch
 --
--- The eleven tables below were rebuilt from the written descriptions in Chapters 1 to 3
+-- The tables below were rebuilt from the written descriptions in Chapters 1 to 3
 -- (module descriptions, flowchart and IPO descriptions, system architecture).
 -- Compare every table and column with Figure 89 (Entity Relationship Diagram) and adjust
 -- this file if the ERD uses different names or extra fields.
+--
+-- order_items follows the company's order form (System Revised Order Form): one order (J.O.)
+-- can have several lines, each with its own project type, media, size, number of sheets, and
+-- number of sets. Prices are not stored, because the system does not compute prices
+-- (Chapter 1, Delimitations). This adds a twelfth table to the eleven in the ERD.
 
 CREATE DATABASE IF NOT EXISTS crm_pams
   CHARACTER SET utf8mb4
@@ -78,26 +83,43 @@ CREATE TABLE customers (
 );
 
 CREATE TABLE orders (
-  order_id             INT AUTO_INCREMENT PRIMARY KEY,
+  order_id             INT AUTO_INCREMENT PRIMARY KEY,  -- the J.O. number
   customer_id          INT          NOT NULL,
-  project_type_id      INT          NOT NULL,
   project_description  VARCHAR(500) NOT NULL,
-  required_output      VARCHAR(150) NULL,
   deadline             DATE         NOT NULL,
   urgency_level_id     INT          NOT NULL,
+  delivery_address     VARCHAR(255) NULL,               -- blank when the customer picks up the order
   special_instructions VARCHAR(500) NULL,
   stage_id             INT          NOT NULL,
   date_received        DATETIME     NOT NULL,       -- set by the system when the order is saved
   encoded_by           INT          NOT NULL,
   updated_at           DATETIME     NULL,
   CONSTRAINT fk_orders_customer     FOREIGN KEY (customer_id)      REFERENCES customers (customer_id),
-  CONSTRAINT fk_orders_project_type FOREIGN KEY (project_type_id)  REFERENCES project_types (project_type_id),
   CONSTRAINT fk_orders_urgency      FOREIGN KEY (urgency_level_id) REFERENCES urgency_levels (urgency_level_id),
   CONSTRAINT fk_orders_stage        FOREIGN KEY (stage_id)         REFERENCES workflow_stages (stage_id),
   CONSTRAINT fk_orders_encoded_by   FOREIGN KEY (encoded_by)       REFERENCES users (user_id),
   INDEX idx_orders_stage (stage_id),
   INDEX idx_orders_deadline (deadline),
   INDEX idx_orders_date_received (date_received)
+);
+
+-- Order lines (columns of the company's order form). Total no. of sheets = sheet_count x set_count,
+-- computed when shown instead of stored, so it can never disagree with the two counts.
+CREATE TABLE order_items (
+  order_item_id   INT AUTO_INCREMENT PRIMARY KEY,
+  order_id        INT         NOT NULL,
+  line_no         INT         NOT NULL,                 -- 1, 2, 3 ... in the order they were entered
+  project_type_id INT         NOT NULL,
+  media           VARCHAR(40) NOT NULL,                 -- for example Bond paper, Blueprint paper, Vellum
+  sheet_size      VARCHAR(30) NOT NULL,                 -- for example A1, 20 x 30 in
+  sheet_count     INT         NOT NULL,                 -- NO. OF SHEET
+  set_count       INT         NOT NULL,                 -- NO. OF SET
+  CONSTRAINT fk_order_items_order        FOREIGN KEY (order_id)        REFERENCES orders (order_id),
+  CONSTRAINT fk_order_items_project_type FOREIGN KEY (project_type_id) REFERENCES project_types (project_type_id),
+  CONSTRAINT uq_order_items_line UNIQUE (order_id, line_no),
+  CONSTRAINT ck_order_items_sheets CHECK (sheet_count BETWEEN 1 AND 999),
+  CONSTRAINT ck_order_items_sets   CHECK (set_count BETWEEN 1 AND 99),
+  INDEX idx_order_items_type (project_type_id)
 );
 
 -- Reference file attachment: only the file name and its network location are stored.

@@ -3,14 +3,13 @@ package crmpams.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/** The cleaned values written to the orders table. */
+/** The cleaned values written to the orders table. The order lines are written to order_items. */
 public record NewOrderRecord(
         int customerId,
-        int projectTypeId,
         String projectDescription,
-        String requiredOutput,
         LocalDate deadline,
         int urgencyLevelId,
+        String deliveryAddress,
         String specialInstructions,
         int stageId,
         LocalDateTime dateReceived,

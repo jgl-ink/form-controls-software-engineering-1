@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import crmpams.model.OrderLine;
 import crmpams.model.OrderRequest;
 import crmpams.security.AccessDeniedException;
 import crmpams.testsupport.InMemoryStore;
@@ -14,6 +15,7 @@ import crmpams.validation.Fields;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -28,9 +30,13 @@ class OrderIntakeServiceTest {
         service = TestFixtures.context(store).orderIntake();
     }
 
+    private static final OrderLine FLOOR_PLAN = new OrderLine(2, "Architectural Floor Plan", "Bond paper", "A1", 2, 1);
+    private static final OrderLine BLUEPRINT = new OrderLine(3, "Blueprint Printing", "Blueprint paper", "A1", 2, 3);
+
     private static OrderRequest request(String name, String contact, String description, LocalDate deadline,
             String file) {
-        return new OrderRequest(null, name, contact, "", 2, description, "2 sets A1", deadline, 2, "", file);
+        return new OrderRequest(null, name, contact, "", description, List.of(FLOOR_PLAN), deadline, 2, "", "",
+                file);
     }
 
     @Test
@@ -93,11 +99,11 @@ class OrderIntakeServiceTest {
     void invalidInputIsRejectedAndNothingIsWritten() throws Exception {
         int ordersBefore = store.orders.size();
         SaveOrderResult r = service.save(TestFixtures.OFFICER,
-                new OrderRequest(null, "", "123", "bad@", null, "", "", TestFixtures.TODAY.minusDays(1), null,
-                        "", ""), false);
+                new OrderRequest(null, "", "123", "bad@", "", List.of(), TestFixtures.TODAY.minusDays(1), null,
+                        "", "", ""), false);
         assertEquals(SaveOrderResult.Status.INVALID, r.status());
         for (String f : new String[] {Fields.CUSTOMER_NAME, Fields.CONTACT_NUMBER, Fields.EMAIL,
-            Fields.PROJECT_TYPE, Fields.PROJECT_DESCRIPTION, Fields.DEADLINE, Fields.URGENCY}) {
+            Fields.ORDER_LINES, Fields.PROJECT_DESCRIPTION, Fields.DEADLINE, Fields.URGENCY}) {
             assertNotNull(r.errors().messageFor(f), f);
         }
         assertEquals(ordersBefore, store.orders.size());
@@ -114,6 +120,33 @@ class OrderIntakeServiceTest {
         InMemoryStore.ReferenceFile f = store.referenceFiles.get(0);
         assertEquals(file.getFileName().toString(), f.name());
         assertEquals(file.toString(), f.location());
+    }
+
+    @Test
+    void savesEveryOrderLineWithItsOwnProjectTypeAndTheAddress() throws Exception {
+        OrderRequest r = new OrderRequest(null, "Juan Dela Cruz", "09171112222", "", "Floor plan and blueprints",
+                List.of(FLOOR_PLAN, BLUEPRINT), TestFixtures.TODAY.plusDays(2), 3, "12 Sample St., Quezon City", "",
+                "");
+        SaveOrderResult saved = service.save(TestFixtures.OFFICER, r, false);
+        assertEquals(SaveOrderResult.Status.SAVED, saved.status());
+        List<InMemoryStore.Item> items = store.items.stream().filter(i -> i.orderId() == saved.orderId()).toList();
+        assertEquals(2, items.size());
+        assertEquals(2, items.get(0).projectTypeId());
+        assertEquals(3, items.get(1).projectTypeId());
+        assertEquals(2, items.get(1).lineNo());
+        assertEquals(6, BLUEPRINT.totalSheets());                                // 2 sheets x 3 sets
+        assertEquals("12 Sample St., Quezon City", store.orders.get(store.orders.size() - 1).deliveryAddress());
+        assertEquals(TestFixtures.TODAY.atTime(9, 0), saved.dateReceived());     // date and time received
+    }
+
+    @Test
+    void anInvalidLineIsReportedWithItsLineNumber() throws Exception {
+        OrderLine bad = new OrderLine(3, "Blueprint Printing", "", "A1", 0, 1);
+        OrderRequest r = new OrderRequest(null, "Juan Dela Cruz", "09171112222", "", "Floor plan and blueprints",
+                List.of(FLOOR_PLAN, bad), TestFixtures.TODAY, 2, "", "", "");
+        SaveOrderResult result = service.save(TestFixtures.OFFICER, r, false);
+        assertTrue(result.errors().messageFor(Fields.ORDER_LINES).startsWith("Line 2:"));
+        assertEquals(0, store.transactions);
     }
 
     @Test

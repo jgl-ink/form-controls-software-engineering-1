@@ -154,4 +154,24 @@ class FieldRulesTest {
         assertNull(FieldRules.searchText("a".repeat(100)));
         assertNotNull(FieldRules.searchText("a".repeat(101)));
     }
+
+    @Test
+    void orderLineRules() {
+        assertNull(FieldRules.lineMedia("Bond paper"));
+        assertNotNull(FieldRules.lineMedia(" "));
+        assertNotNull(FieldRules.lineMedia("m".repeat(41)));
+        assertNull(FieldRules.lineSize("A1"));
+        assertNotNull(FieldRules.lineSize(""));
+        assertNotNull(FieldRules.lineSize("s".repeat(31)));
+        assertNull(FieldRules.sheetCount(1));                            // boundaries 1 and 999
+        assertNull(FieldRules.sheetCount(999));
+        assertNotNull(FieldRules.sheetCount(0));
+        assertNotNull(FieldRules.sheetCount(1000));
+        assertNotNull(FieldRules.sheetCount(null));                      // typed text that is not a number
+        assertNull(FieldRules.setCount(99));
+        assertNotNull(FieldRules.setCount(100));
+        assertNotNull(FieldRules.lineCount(0));
+        assertNull(FieldRules.lineCount(20));
+        assertNotNull(FieldRules.lineCount(21));
+    }
 }
