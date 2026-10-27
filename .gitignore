@@ -1,0 +1,15 @@
+# Build output
+target/
+
+# Local settings with the database password
+db.properties
+
+# Application logs
+logs/
+
+# NetBeans and OS files
+nbproject/private/
+nb-configuration.xml
+nbactions.xml
+.DS_Store
+Thumbs.db

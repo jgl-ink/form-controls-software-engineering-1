@@ -1,0 +1,8 @@
+# Database connection settings for CRM-PAMS.
+# 1. Copy this file to db.properties in the project folder (NetBeans runs the app from there).
+# 2. Set the password of the restricted application account (see sql/schema.sql).
+# 3. On client workstations, replace localhost with the IP address of the server workstation.
+# db.properties is listed in .gitignore. Never commit the real password.
+db.url=jdbc:mysql://localhost:3306/crm_pams?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Manila
+db.user=crm_app
+db.password=change-this-password
