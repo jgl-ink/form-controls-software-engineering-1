@@ -36,7 +36,7 @@ in-memory copy of the tables (`src/test/java/crmpams/testsupport`).
 ## Taking the screenshots again
 
 Right-click `src/test/java/crmpams/tools/FormScreenshotTool.java` and choose Run File.
-It writes every form, in its normal and error states, to `docs/form-controls/screenshots/`.
+It writes the forms in its normal and error states, to `docs/form-controls/screenshots/`.
 
 ## Where things are
 
